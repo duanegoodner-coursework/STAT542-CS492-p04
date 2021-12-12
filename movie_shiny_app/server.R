@@ -17,9 +17,9 @@ get_user_ratings = function(value_list) {
 
 get_user_top_n <- function(user_ratings) {
   new_user_data <- data.table(
-    i = rep(max(model_data$i) + 1, nrow(new_user_ratings)),
-    j = new_user_ratings$MovieID,
-    x = new_user_ratings$Rating)
+    i = rep(max(model_data$i) + 1, nrow(user_ratings)),
+    j = user_ratings$MovieID,
+    x = user_ratings$Rating)
   
   full_data <- rbind(model_data, new_user_data)
   full_data_sparse <- sparseMatrix(i = as.integer(as.factor(full_data$i)),
@@ -27,15 +27,8 @@ get_user_top_n <- function(user_ratings) {
                                    x = full_data$x)
   full_data_rrm <- as(full_data_sparse, "realRatingMatrix")
   
-  
-  if (nrow(user_ratings) == 1) {
-    cur_recommender <- ibcf_recommender
-  } else {
-    cur_recommender <- svd_recommender
-  }
-  
   top_n_result <-
-    predict(cur_recommender, full_data_rrm[new_user_id], type = "topNList", n = 10)
+    predict(svd_recommender, full_data_rrm[new_user_id], type = "topNList", n = 10)
   
   return(top_n_result@itemLabels[top_n_result@items[[1]]])
 }
@@ -73,7 +66,7 @@ shinyServer(function(input, output, session) {
       # new_user_ratings <- readRDS('test_data/user_ratings_dat.RDS')
       new_user_ratings <- get_user_ratings(value_list)
       
-      if (nrow(new_user_ratings) == 0) {
+      if (nrow(new_user_ratings) < 2) {
         top_n_result <- popular_recommender@model$topN
         user_predicted_ids <-
           as.integer(top_n_result@itemLabels[top_n_result@items[[1]][1:10]])
@@ -83,9 +76,11 @@ shinyServer(function(input, output, session) {
       
       recom_movies <- subset(movies, MovieID %in% user_predicted_ids)
       
-      recom_results <- data.table(Rank = 1:nrow(recom_movies), 
-                                  MovieID = recom_movies$MovieID, 
-                                  Title = recom_movies$Title)
+      # recom_results <- data.table(Rank = 1:nrow(recom_movies), 
+      #                             MovieID = recom_movies$MovieID, 
+      #                             Title = recom_movies$Title)
+      
+      return(recom_movies)
       
     }) # still busy
     
@@ -103,10 +98,10 @@ shinyServer(function(input, output, session) {
         box(width = 2, status = "success", solidHeader = TRUE, title = paste0("Rank ", (i - 1) * num_movies + j),
             
             div(style = "text-align:center", 
-                a(img(src = movies$image_url[recom_result$MovieID[(i - 1) * num_movies + j]], height = 150))
+                a(img(src = recom_result$image_url[(i - 1) * num_movies + j], height = 150))
             ),
             div(style="text-align:center; font-size: 100%", 
-                strong(movies$Title[recom_result$MovieID[(i - 1) * num_movies + j]])
+                strong(recom_result$Title[(i - 1) * num_movies + j])
             )
             
         )        

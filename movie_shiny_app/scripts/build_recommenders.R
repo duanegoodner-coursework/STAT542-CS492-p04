@@ -20,11 +20,11 @@ colnames(r_sparse) <- paste0(as.character(levels(movie_ids)))
 r_rrm <- as(r_sparse, "realRatingMatrix")
 
 svd_recommender <- Recommender(r_rrm, "SVD", param = list(k = 45))
-ibcf_recommender <- Recommender(r_rrm, "IBCF")
+random_recommender <- Recommender(r_rrm, "RANDOM")
 popular_recommender <- Recommender(r_rrm, "POPULAR")
 
 saveRDS(svd_recommender, file = "recommenders/svd_recommender.RDS")
-saveRDS(ibcf_recommender, file = "recommenders/ibcf_recommender.RDS")
+saveRDS(random_recommender, file = "recommenders/random_recommender.RDS")
 saveRDS(popular_recommender, file = "recommenders/popular_recommender.RDS")
 saveRDS(r_rrm, "recommenders/r_rrm.RDS")
 
