@@ -1,3 +1,9 @@
+library(data.table)
+library(recommenderlab)
+library(Matrix)
+
+source('scripts/import_data.R')
+
 get_user_ratings = function(value_list) {
   dat = data.table(MovieID = sapply(strsplit(names(value_list), "_"), 
                                     function(x) ifelse(length(x) > 1, x[[2]], NA)),
@@ -8,19 +14,32 @@ get_user_ratings = function(value_list) {
   dat = dat[Rating > 0]
 }
 
-# read in data
-myurl = "https://liangfgithub.github.io/MovieData/"
-movies = readLines(paste0(myurl, 'movies.dat?raw=true'))
-movies = strsplit(movies, split = "::", fixed = TRUE, useBytes = TRUE)
-movies = matrix(unlist(movies), ncol = 3, byrow = TRUE)
-movies = data.frame(movies, stringsAsFactors = FALSE)
-colnames(movies) = c('MovieID', 'Title', 'Genres')
-movies$MovieID = as.integer(movies$MovieID)
-movies$Title = iconv(movies$Title, "latin1", "UTF-8")
 
-small_image_url = "https://liangfgithub.github.io/MovieImages/"
-movies$image_url = sapply(movies$MovieID, 
-                          function(x) paste0(small_image_url, x, '.jpg?raw=true'))
+get_user_top_n <- function(user_ratings) {
+  new_user_data <- data.table(
+    i = rep(max(model_data$i) + 1, nrow(new_user_ratings)),
+    j = new_user_ratings$MovieID,
+    x = new_user_ratings$Rating)
+  
+  full_data <- rbind(model_data, new_user_data)
+  full_data_sparse <- sparseMatrix(i = as.integer(as.factor(full_data$i)),
+                                   j = as.integer(as.factor(full_data$j)),
+                                   x = full_data$x)
+  full_data_rrm <- as(full_data_sparse, "realRatingMatrix")
+  
+  
+  if (nrow(user_ratings) == 1) {
+    cur_recommender <- ibcf_recommender
+  } else {
+    cur_recommender <- svd_recommender
+  }
+  
+  top_n_result <-
+    predict(cur_recommender, full_data_rrm[new_user_id], type = "topNList", n = 10)
+  
+  return(top_n_result@itemLabels[top_n_result@items[[1]]])
+}
+
 
 shinyServer(function(input, output, session) {
   
@@ -50,14 +69,23 @@ shinyServer(function(input, output, session) {
       
       # get the user's rating data
       value_list <- reactiveValuesToList(input)
-      user_ratings <- get_user_ratings(value_list)
       
-      user_results = (1:10)/10
-      user_predicted_ids = 1:10
-      recom_results <- data.table(Rank = 1:10, 
-                                  MovieID = movies$MovieID[user_predicted_ids], 
-                                  Title = movies$Title[user_predicted_ids], 
-                                  Predicted_rating =  user_results)
+      # new_user_ratings <- readRDS('test_data/user_ratings_dat.RDS')
+      new_user_ratings <- get_user_ratings(value_list)
+      
+      if (nrow(new_user_ratings) == 0) {
+        top_n_result <- popular_recommender@model$topN
+        user_predicted_ids <-
+          as.integer(top_n_result@itemLabels[top_n_result@items[[1]][1:10]])
+      } else {
+        user_predicted_ids <- get_user_top_n(new_user_ratings)
+      }
+      
+      recom_movies <- subset(movies, MovieID %in% user_predicted_ids)
+      
+      recom_results <- data.table(Rank = 1:nrow(recom_movies), 
+                                  MovieID = recom_movies$MovieID, 
+                                  Title = recom_movies$Title)
       
     }) # still busy
     
