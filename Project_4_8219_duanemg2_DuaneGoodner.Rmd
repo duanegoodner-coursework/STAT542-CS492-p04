@@ -1,0 +1,224 @@
+---
+title: 'Project 4: Movie Recommendation'
+author: "Fall 2021, Duane Goodner (netID = duanemg2)"
+date: "12/12/2021"
+output:
+  html_document:
+    theme: readable
+    toc: yes
+    toc_float: yes
+    code_download: true
+---
+
+# Preliminary setup
+
+Before we begin, let's define a function that we can call as needed to quickly install/load packages.
+```{r}
+ensure_packages <- function(package_names) {
+  tmp <- setdiff(package_names, rownames(installed.packages()))
+  if (length(tmp) > 0) install.packages(tmp)
+  lapply(package_names, require, character.only = TRUE)
+}
+```
+
+
+# 1. Genre Based Recommendation Algorithms
+
+## 1.1 Loading Packages and Data
+
+First, we make sure the necessary packages are loaded.
+```{r, message=FALSE}
+invisible(ensure_packages(c("dplyr", "caret", "recommenderlab", "data.table", "DT")))
+```
+
+
+We then add a function that will be used to import Movie, Rating and User data into the environment where will will run the genre-based recommendation algorithms. The body of this function was provided in the course material at: https://liangfgithub.github.io/Rcode_W13_Movie_EDA.nb.html
+
+```{r}
+import_data <- function(proj_env) {
+  with(proj_env, {
+    data_url <- "https://liangfgithub.github.io/MovieData/"
+    
+    # import ratings data
+    # use colClasses = 'NULL' to skip columns
+    ratings <- read.csv(paste0(data_url, 'ratings.dat?raw=true'), 
+                        sep = ':',
+                        colClasses = c('integer', 'NULL'), 
+                        header = FALSE)
+    colnames(ratings) <- c('UserID', 'MovieID', 'Rating', 'Timestamp')
+    
+    
+    # import movies data
+    movies <- readLines(paste0(data_url, 'movies.dat?raw=true'))
+    movies <- strsplit(movies, split = "::", fixed = TRUE, useBytes = TRUE)
+    movies <- matrix(unlist(movies), ncol = 3, byrow = TRUE)
+    movies <- data.frame(movies, stringsAsFactors = FALSE)
+    colnames(movies) <- c('MovieID', 'Title', 'Genres')
+    movies$MovieID <- as.integer(movies$MovieID)
+    
+    # convert accented characters
+    movies$Title[73]
+    movies$Title <- iconv(movies$Title, "latin1", "UTF-8")
+    movies$Title[73]
+    
+    # extract year
+    movies$Year <- as.numeric(unlist(
+      lapply(movies$Title, function(x) substr(x, nchar(x) - 4, nchar(x) - 1))))
+    
+    
+    # import user data
+    users <- read.csv(paste0(data_url, 'users.dat?raw=true'),
+                      sep = ':', header = FALSE)
+    users <- users[, -c(2,4,6,8)] # skip columns
+    colnames(users) <- c('UserID', 'Gender', 'Age', 'Occupation', 'Zip-code')
+  })
+}
+```
+
+We then create an environment (named `system_01` that will contain objects for the genre-based recommender algorithms and import raw data into this environment.
+
+```{r}
+system_01 <- new.env()
+import_data(system_01)
+```
+
+
+## 1.2 Building a Genre Matrix  
+
+Next, we define function `build_genre_matrix` that will create a dataframe with a row for each movie and a column for each genre. If a movie belongs to a particular genre, the entry for that movie-genre pair will be 1. Otherwise, the entry will be 0. After defining `build_genre_matrix`, we set `system_01` as its calling environment.
+```{r}
+build_genre_matrix <- function() {
+  genres_str_list <- movies$Genres %>%
+    lapply(strsplit, split = "[|]") %>%
+    unlist(recursive = FALSE)
+  
+  genre_names <- unlist(genres_str_list) %>%
+    unique()
+  
+  genre_mat <- lapply(genres_str_list, \(x) {
+    x %>%
+      factor(levels = genre_names) %>%
+      class2ind() %>% colSums
+  }) %>%
+    bind_rows()
+  
+  system_01$genre_matrix <- data.frame(MovieID = movies$MovieID,
+                                          genre_mat, check.names = FALSE)
+}
+
+environment(build_genre_matrix) <- system_01
+```
+
+We then run function `build_genre_matrix` so we have a genre matrix available for use in the `system_01` environment.
+```{r}
+build_genre_matrix()
+```
+
+
+## 1.3 Genre-based Query Functions
+
+Next, we build two different query function that will each recommend 5 (different) movies based on the knowledge of a user's favorite genre. 
+
+## 1.3.1 Highest rated among 25% most "popular" (frequently rated) movies in genre
+
+The first of these functions restricts its search to 25% of movies in the genre with the most ratings. It returns the 5 highest rated among the upper quartile of most-rated movies from the genre. As was the case with `buid_genre_matrix()`, we also set `system_01` as the calling environment.
+```{r}
+top_rated_popular_of_genre <- function(genre, num_movies = 5) {
+  df <- genre_matrix[
+    which(genre_matrix[[genre]] == 1), ] %>%
+    inner_join(ratings, by = 'MovieID') %>%
+    group_by(MovieID) %>%
+    summarize(ratings_per_movie = n(), ave_rating = mean(Rating)) %>%
+    inner_join(movies, by = 'MovieID')
+  
+  num_ratings_cutoff <- summary(df$ratings_per_movie)["3rd Qu."]
+  
+  df <- df[which(df$ratings_per_movie > num_ratings_cutoff), ] %>%
+    arrange(desc(ave_rating)) %>%
+    head(num_movies)
+  
+  return(df[, c('Title', 'Genres', 'Year', 'ratings_per_movie', 'ave_rating', 'MovieID')])
+}
+environment(top_rated_popular_of_genre) <- system_01
+```
+
+
+### 1.3.2 Reasonably popular and highly movies that are combined with highest number of additional genres
+
+For our second genre-based recommendation algorithm we write function that restricts its search to movies that belong to the genre of interest and are in the upper 50% of both average ratings and number of ratings received. It returns movies from this set that belong to the most additional genres. A motivation for this type of algorithm is to encourage users to "branch out" into other genres.
+
+```{r}
+most_other_genres_high_rate_popular <- function(genre, num_movies = 5) {
+  genre_names <- names(genre_matrix)[which(names(genre_matrix) != "MovieID")]
+  
+  df <- genre_matrix[
+    which(genre_matrix[[genre]] == 1), ] %>%
+    inner_join(ratings, by = 'MovieID') %>%
+    group_by(MovieID) %>%
+    summarize(ratings_per_movie = n(), ave_rating = mean(Rating)) %>%
+    inner_join(movies, by = 'MovieID')
+  
+  num_ratings_cutoff <- median(df$ratings_per_movie)
+  ave_rating_cutoff <- median(df$ave_rating)
+  
+  df <- df[which(df$ratings_per_movie > num_ratings_cutoff &
+                   df$ave_rating > ave_rating_cutoff), ] %>%
+    left_join(genre_matrix, by = 'MovieID')
+  
+  df <- arrange(df, desc(rowSums(df[, genre_names]))) %>%
+    head(num_movies)
+    
+  
+  return(df[, c('Title', 'Genres', 'Year', 'ratings_per_movie', 'ave_rating', 'MovieID')])
+}
+environment(most_other_genres_high_rate_popular) <- system_01
+```
+
+
+## 1.4 Genre based recommendery system results
+
+For each of the two query functions, we use `lapply` to obtain results for each of the 18 genres.
+```{r}
+with(system_01, {
+  top_rated_popular <- colnames(genre_matrix[-1]) %>%
+    lapply(top_rated_popular_of_genre) %>%
+    setNames(colnames(genre_matrix[-1]))
+  
+  most_other_genres_top_rated_popular <- colnames(genre_matrix[-1]) %>%
+    lapply(most_other_genres_high_rate_popular) %>%
+    setNames(colnames(genre_matrix[-1]))
+  
+})
+```
+Variables `top_rated_popular` and `most_other_genres_top_rated_popular` are both 18-member lists, with each list entry consisting of a tibble of recommended movies. Two of these tibbles is shown here. The complete lists with all (36) tibbles are included in the Appendix.
+
+```{r}
+datatable(system_01$top_rated_popular$Action, class = "nowrap hover row-border", 
+            escape = FALSE, 
+            options = list(dom = 't',
+                           scrollX = TRUE, autoWidth = TRUE))
+```
+
+```{r}
+datatable(system_01$most_other_genres_top_rated_popular$Comedy,
+          class = "nowrap hover row-border", 
+            escape = FALSE, 
+            options = list(dom = 't',
+                           scrollX = TRUE, autoWidth = TRUE))
+
+```
+
+
+# Appendix
+
+```{r}
+system_01$top_rated_popular
+```
+
+
+```{r}
+system_01$most_other_genres_top_rated_popular
+```
+
+
+

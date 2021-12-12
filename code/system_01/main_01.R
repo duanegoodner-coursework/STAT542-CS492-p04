@@ -1,6 +1,5 @@
 source('code/utilities.R')
-ensure_packages(c("dplyr", "ggplot2", "recommenderlab", "DT", "data.table",
-                  "reshape2", "stringr", "purrr", "caret", "envnames"))
+ensure_packages(c("dplyr", "caret", "recommenderlab"))
 
 system_01 <- new.env()
 
@@ -11,5 +10,13 @@ source('code/system_01/query_functs.R')
 import_data(system_01)
 build_genre_matrix()
 
-animation_pop_highly_rated <- top_rated_popular_of_genre("Animation")
-animation_combined_with_other <- combined_with_other_genre("Animation")
+with(system_01, {
+  top_rated_popular <- colnames(genre_matrix[-1]) %>%
+    lapply(top_rated_popular_of_genre) %>%
+    setNames(colnames(genre_matrix[-1]))
+  
+  most_other_genres_top_rated_popular <- colnames(genre_matrix[-1]) %>%
+    lapply(most_other_genres_high_rate_popular) %>%
+    setNames(colnames(genre_matrix[-1]))
+  
+})

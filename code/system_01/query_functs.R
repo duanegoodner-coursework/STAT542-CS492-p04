@@ -1,4 +1,4 @@
-top_rated_popular_of_genre <- function(genre) {
+top_rated_popular_of_genre <- function(genre, num_movies = 5) {
   df <- genre_matrix[
     which(genre_matrix[[genre]] == 1), ] %>%
     inner_join(ratings, by = 'MovieID') %>%
@@ -10,14 +10,14 @@ top_rated_popular_of_genre <- function(genre) {
   
   df <- df[which(df$ratings_per_movie > num_ratings_cutoff), ] %>%
     arrange(desc(ave_rating)) %>%
-    head(n = 10)
+    head(num_movies)
   
-  return(df)
+  return(df[, c('Title', 'Genres', 'Year', 'ratings_per_movie', 'ave_rating', 'MovieID')])
 }
 environment(top_rated_popular_of_genre) <- system_01
 
 
-combined_with_other_genre <- function(genre) {
+most_other_genres_high_rate_popular <- function(genre, num_movies = 5) {
   genre_names <- names(genre_matrix)[which(names(genre_matrix) != "MovieID")]
   
   df <- genre_matrix[
@@ -35,12 +35,12 @@ combined_with_other_genre <- function(genre) {
     left_join(genre_matrix, by = 'MovieID')
   
   df <- arrange(df, desc(rowSums(df[, genre_names]))) %>%
-    head(n = 10)
+    head(num_movies)
     
   
-  return(df)
+  return(df[, c('Title', 'Genres', 'Year', 'ratings_per_movie', 'ave_rating', 'MovieID')])
 }
-environment(combined_with_other_genre) <- system_01
+environment(most_other_genres_high_rate_popular) <- system_01
 
 
 
