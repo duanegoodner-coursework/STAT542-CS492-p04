@@ -1,26 +1,4 @@
 
-source('scripts/load_movies.R')
-
-# current version places things in global environment. consider just
-# returning everything as an object (that will exist inside server function)?
-import_shiny_app_data <- function() {
-  movies <<- load_movies()
-  
-  small_image_url <<-  "https://liangfgithub.github.io/MovieImages/"
-  movies$image_url <<-  sapply(movies$MovieID, 
-                               function(x) paste0(small_image_url, x, '.jpg?raw=true'))
-  
-  genre_matrix <<- readRDS('recommenders/genre_matrix.RDS')
-  
-  r_rrm <<- readRDS('recommenders/r_rrm.RDS')
-  svd_recommender <<- readRDS('recommenders/svd_recommender.RDS')
-  popular_recommender <<- readRDS('recommenders/popular_recommender.RDS')
-  
-  
-  model_data <<- data.table(summary(as(r_rrm, "dgCMatrix")))
-  new_user_id <<- max(model_data$i + 1)
-}
-
 
 get_user_ratings = function(value_list) {
   dat = data.table(MovieID = sapply(strsplit(names(value_list), "_"), 
@@ -58,6 +36,23 @@ get_user_top_n_ids <- function(user_ratings) {
   }
   
   return(user_top_n_ids)
+}
+
+get_top_rated_popular_of_genre_ids <- function(genre, num_movies = 5) {
+  df <- genre_matrix[
+    which(genre_matrix[[genre]] == 1), ] %>%
+    inner_join(ratings, by = 'MovieID') %>%
+    group_by(MovieID) %>%
+    summarize(ratings_per_movie = n(), ave_rating = mean(Rating)) %>%
+    inner_join(movies, by = 'MovieID')
+  
+  num_ratings_cutoff <- summary(df$ratings_per_movie)["3rd Qu."]
+  
+  df <- df[which(df$ratings_per_movie > num_ratings_cutoff), ] %>%
+    arrange(desc(ave_rating)) %>%
+    head(num_movies)
+  
+  return(df$MovieID)
 }
 
 

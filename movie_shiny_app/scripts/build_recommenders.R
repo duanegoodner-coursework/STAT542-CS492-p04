@@ -23,9 +23,9 @@ build_recommenders <- function() {
   svd_recommender <- Recommender(r_rrm, "SVD", param = list(k = 45))
   popular_recommender <- Recommender(r_rrm, "POPULAR")
   
-  saveRDS(r_rrm, "recommenders/r_rrm.RDS")
-  saveRDS(svd_recommender, file = "recommenders/svd_recommender.RDS")
-  saveRDS(popular_recommender, file = "recommenders/popular_recommender.RDS")
+  saveRDS(r_rrm, "server_data/r_rrm.RDS")
+  saveRDS(svd_recommender, file = "server_data/svd_recommender.RDS")
+  saveRDS(popular_recommender, file = "server_data/popular_recommender.RDS")
   
 }
 

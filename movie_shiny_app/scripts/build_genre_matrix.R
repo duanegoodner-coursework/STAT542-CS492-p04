@@ -1,6 +1,6 @@
 source('scripts/load_movies.R')
 
-build_genre_matrix_for_server <- function() {
+build_genre_matrix_for_shinyapp <- function() {
   
   movies <- load_movies()
   
@@ -21,7 +21,8 @@ build_genre_matrix_for_server <- function() {
   genre_matrix <- data.frame(MovieID = movies$MovieID,
                              genre_mat, check.names = FALSE)
   
-  saveRDS(genre_matrix, "recommenders/genre_matrix.RDS")
+  saveRDS(genre_matrix, "server_data/genre_matrix.RDS")
+  saveRDS(colnames(genre_matrix)[-1], "ui_data/genre_names.RDS")
 }
 
-build_genre_matrix_for_server()
+build_genre_matrix_for_shinyapp()

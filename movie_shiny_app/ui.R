@@ -7,6 +7,8 @@ library(ShinyRatingInput)
 library(shinyjs)
 
 source('functions/ui_helpers.R')
+source('scripts/startup/import_ui_data.R')
+
 
 shinyUI(
     dashboardPage(
@@ -22,26 +24,42 @@ shinyUI(
           ),
 
           dashboardBody(
-            # tags$head(
-            #   tags$link(rel = "styleSheet", type = "text/css", href = "movies.css")
-            # ),
             includeCSS("css/movies.css"),
             tabItems(
+              
+              # genre-base recommender tab
               tabItem(tabName = "genre",
                 fluidRow(
                   box(width = 12,
-                      height = 250,
+                      # height = 250,
                       title = "Select your favorite genre",
                       status = "info", solidHeader = TRUE, collapsible = FALSE,
                       div(class = "choosegenre",
                           # uiOutput('genres')
-                          awesomeRadio(inputId = "genreradio", label = "choose genre",
-                                       choices = c("one", "two", "three"),
+                          awesomeRadio(inputId = "genreradio", label = NULL,
+                                       choices = genre_names,
                                        inline = TRUE)
                       )
                   )
+                ),
+                fluidRow(
+                  useShinyjs(),
+                  box(
+                    width = 12, status = "info", solidHeader = TRUE,
+                    title = "Step 2: Discover top movies from your favorite genre",
+                    br(),
+                    withBusyIndicatorUI(
+                      actionButton("genre_btn",
+                                   "Click here to get your recommendations",
+                                   class = "btn-warning")
+                    ),
+                    br(),
+                    tableOutput("genre_results")
+                  )
                 )
               ),
+              
+              # collaborative filtering tab
               tabItem(tabName = "cf",
                 fluidRow(
                   box(width = 12,
@@ -59,7 +77,9 @@ shinyUI(
                     title = "Step 2: Discover movies you might like",
                     br(),
                     withBusyIndicatorUI(
-                      actionButton("btn", "Click here to get your recommendations", class = "btn-warning")
+                      actionButton("btn",
+                                   "Click here to get your recommendations",
+                                   class = "btn-warning")
                     ),
                     br(),
                     tableOutput("results")

@@ -3,33 +3,51 @@ library(recommenderlab)
 library(Matrix)
 library(caret)
 
-# source('scripts/import_data.R')
+source('scripts/startup/import_server_data.R')
 source('functions/server_helpers.R')
-
-
-import_shiny_app_data()
 
 shinyServer(function(input, output, session) {
   
-  genre_names <- colnames(genre_matrix)[-1]
+  # Calculate recommendations when submit button on genre tab is clicked
+  genre_df <- eventReactive(input$genre_btn, {
+    withBusyIndicatorServer("genre_btn", {
+      useShinyjs()
+      jsCode <- "document.querySelector('[data-widget=collapse]').click();"
+      runjs(jsCode)
+      
+      selected_genre <- input$genreradio
+      
+      recom_ids <- get_top_rated_popular_of_genre_ids(selected_genre)
+      
+      recom_movies <- subset(movies, MovieID %in% recom_ids)
+      
+      return(recom_movies)
+    })
+  })
   
-  # show genre options
-  # output$genres <- renderUI({
-  #   num_rows <- 3
-  #   num_cols <- 6
-  # 
-  #   lapply(1:num_rows, function(row_num) {
-  #     list(fluidRow(lapply(1:num_cols, function(col_num) {
-  #       list(box(width = 2,
-  #                div(
-  #                  style = "text-align:center",
-  #                  strong(genre_names[(row_num - 1) * num_cols + col_num])
-  #                )))
-  #     })))
-  #   })
-  # })
+  # display recommendations on genre tab
+  output$genre_results <- renderUI({
+    num_rows <- 2
+    num_movies <- 5
+    recom_result <- genre_df()
+    
+    lapply(1:num_rows, function(i) {
+      list(fluidRow(lapply(1:num_movies, function(j) {
+        box(width = 2, status = "success", solidHeader = TRUE, title = paste0("Rank ", (i - 1) * num_movies + j),
+            
+            div(style = "text-align:center", 
+                a(img(src = recom_result$image_url[(i - 1) * num_movies + j], height = 150))
+            ),
+            div(style="text-align:center; font-size: 100%", 
+                strong(recom_result$Title[(i - 1) * num_movies + j])
+            )
+            
+        )        
+      }))) # columns
+    })
+  })
   
-  # show the books to be rated
+  # show the movies to be rated on CF tab
   output$ratings <- renderUI({
     num_rows <- 20
     num_movies <- 6 # movies per row
@@ -56,7 +74,7 @@ shinyServer(function(input, output, session) {
     })
   })
   
-  # Calculate recommendations when the sbumbutton is clicked
+  # Calculate recommendations when the submit button on CF tab is clicked
   df <- eventReactive(input$btn, {
     withBusyIndicatorServer("btn", { # showing the busy indicator
       # hide the rating container
@@ -83,7 +101,7 @@ shinyServer(function(input, output, session) {
   }) # clicked on button
   
   
-  # display the recommendations
+  # display the recommendations on CF tab
   output$results <- renderUI({
     num_rows <- 2
     num_movies <- 5
