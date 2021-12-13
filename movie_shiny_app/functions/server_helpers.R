@@ -38,7 +38,7 @@ get_user_top_n_ids <- function(user_ratings) {
   return(user_top_n_ids)
 }
 
-get_top_rated_popular_of_genre_ids <- function(genre, num_movies = 5) {
+get_top_rated_popular_of_genre_ids <- function(genre, num_movies = 10) {
   df <- genre_matrix[
     which(genre_matrix[[genre]] == 1), ] %>%
     inner_join(ratings, by = 'MovieID') %>%

@@ -47,12 +47,12 @@ shinyUI(
                   box(
                     width = 12, status = "info", solidHeader = TRUE,
                     title = "Step 2: Discover top movies from your favorite genre",
-                    br(),
-                    withBusyIndicatorUI(
-                      actionButton("genre_btn",
-                                   "Click here to get your recommendations",
-                                   class = "btn-warning")
-                    ),
+                    # br(),
+                    # withBusyIndicatorUI(
+                    #   actionButton("genre_btn",
+                    #                "Click here to get your recommendations",
+                    #                class = "btn-warning")
+                    # ),
                     br(),
                     tableOutput("genre_results")
                   )

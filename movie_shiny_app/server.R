@@ -27,9 +27,14 @@ shinyServer(function(input, output, session) {
   
   # display recommendations on genre tab
   output$genre_results <- renderUI({
-    num_rows <- 1
+    num_rows <- 2
     num_movies <- 5
-    recom_result <- genre_df()
+    
+    # modify this section when changing from submit button to respond-on-radio change
+    
+    recom_ids <- get_top_rated_popular_of_genre_ids(input$genreradio)
+    recom_result <- subset(movies, MovieID %in% recom_ids)
+    # recom_result <- genre_df()
     
     lapply(1:num_rows, function(i) {
       list(fluidRow(lapply(1:num_movies, function(j) {
