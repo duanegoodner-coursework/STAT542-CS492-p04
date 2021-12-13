@@ -8,33 +8,13 @@ source('functions/server_helpers.R')
 
 shinyServer(function(input, output, session) {
   
-  # Calculate recommendations when submit button on genre tab is clicked
-  genre_df <- eventReactive(input$genre_btn, {
-    withBusyIndicatorServer("genre_btn", {
-      useShinyjs()
-      jsCode <- "document.querySelector('[data-widget=collapse]').click();"
-      runjs(jsCode)
-      
-      selected_genre <- input$genreradio
-      
-      recom_ids <- get_top_rated_popular_of_genre_ids(selected_genre)
-      
-      recom_movies <- subset(movies, MovieID %in% recom_ids)
-      
-      return(recom_movies)
-    })
-  })
-  
-  # display recommendations on genre tab
+  # calculate and display recommendations on genre tab (eventReactive not needed b/c fast)
   output$genre_results <- renderUI({
     num_rows <- 2
     num_movies <- 5
     
-    # modify this section when changing from submit button to respond-on-radio change
-    
     recom_ids <- get_top_rated_popular_of_genre_ids(input$genreradio)
     recom_result <- subset(movies, MovieID %in% recom_ids)
-    # recom_result <- genre_df()
     
     lapply(1:num_rows, function(i) {
       list(fluidRow(lapply(1:num_movies, function(j) {
@@ -111,6 +91,8 @@ shinyServer(function(input, output, session) {
     num_rows <- 2
     num_movies <- 5
     recom_result <- df()
+    
+    test_thing <- input
     
     lapply(1:num_rows, function(i) {
       list(fluidRow(lapply(1:num_movies, function(j) {
