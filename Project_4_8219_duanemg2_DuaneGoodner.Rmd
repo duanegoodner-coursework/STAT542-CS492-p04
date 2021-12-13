@@ -10,24 +10,22 @@ output:
     code_download: true
 ---
 
-# Preliminary setup
+# 1. Introduction
 
-Before we begin, let's define a function that we can call as needed to quickly install/load packages.
-```{r}
+This document contains the description and implementation of genre (query-based)  and collaborative filtering systems for recommending movies to users based on their reported genre preference and/or a sample of rated movies. The dataset for this project consists of approximately 1 million ratings of 3900 movies by 6040 MovieLens users. A companion web-based shiny app using these algorithms with the same dataset is at: https://duanegoodner.shinyapps.io/movie_shiny_app/.
+
+# 2. Genre Based Recommender Systems
+
+## 2.1 Loading Packages and Data
+
+First, we make sure the necessary packages are loaded.
+```{r, message=FALSE}
 ensure_packages <- function(package_names) {
   tmp <- setdiff(package_names, rownames(installed.packages()))
   if (length(tmp) > 0) install.packages(tmp)
   lapply(package_names, require, character.only = TRUE)
 }
-```
 
-
-# 1. Genre Based Recommender Systems
-
-## 1.1 Loading Packages and Data
-
-First, we make sure the necessary packages are loaded.
-```{r, message=FALSE}
 invisible(ensure_packages(c("dplyr", "caret", "recommenderlab", "data.table", "DT")))
 ```
 
@@ -83,7 +81,7 @@ import_data(system_01)
 ```
 
 
-## 1.2 Building a Genre Matrix  
+## 2.2 Building a Genre Matrix  
 
 Next, we define function `build_genre_matrix` that will create a dataframe with a row for each movie and a column for each genre. If a movie belongs to a particular genre, the entry for that movie-genre pair will be 1. Otherwise, the entry will be 0. After defining `build_genre_matrix`, we set `system_01` as its calling environment.
 ```{r}
@@ -115,11 +113,11 @@ build_genre_matrix()
 ```
 
 
-## 1.3 Query Functions
+## 2.3 Query Functions
 
 Next, we build two different query function that will each recommend 5 (different) movies based on the knowledge of a user's favorite genre. 
 
-## 1.3.1 Highest rated among 25% most "popular" (frequently rated) movies in genre
+## 2.3.1 Highest rated among 25% most "popular" (frequently rated) movies in genre
 
 The first of these functions restricts its search to 25% of movies in the genre with the most ratings. It returns the 5 highest rated among the upper quartile of most-rated movies from the genre. As was the case with `buid_genre_matrix()`, we also set `system_01` as the calling environment.
 ```{r}
@@ -143,7 +141,7 @@ environment(top_rated_popular_of_genre) <- system_01
 ```
 
 
-### 1.3.2 Reasonably popular and highly movies that are combined with highest number of additional genres
+### 2.3.2 Reasonably popular and highly movies that are combined with highest number of additional genres
 
 For our second genre-based recommendation algorithm we write function that restricts its search to movies that belong to the genre of interest and are in the upper 50% of both average ratings and number of ratings received. It returns movies from this set that belong to the most additional genres. A motivation for this type of algorithm is to encourage users to "branch out" into other genres.
 
@@ -175,7 +173,7 @@ environment(most_other_genres_high_rate_popular) <- system_01
 ```
 
 
-## 1.4 Genre based recommender results
+## 2.4 Genre based recommender results
 
 For each of the two query functions, we use `lapply` to obtain results for each of the 18 genres.
 ```{r}
@@ -208,17 +206,32 @@ datatable(system_01$most_other_genres_top_rated_popular$Comedy,
 
 ```
 
-# 2. Collaboarative Filtering Recommenders
+# 3. Collaboarative Filtering Recommenders
 
-## 2.1 Algorithm Descriptions
+## 3.1 Algorithm Descriptions
 
-### 2.1.2 SVD (with Column Means Imputation)
+### 3.1.2 SVD (with Column Means Imputation)
+
+The first predictor method evaluated (and the one used in the Shiny App) was Singular Value Decomposition with Column Means imputation. For this algorithm, the only tuning parameter is `k`, the number of SVD components used. **We use k = 50 components**.
+
+The objective function for column means imputation SVD is:
+$$\underset{A \in R^{n x M}, B \in R^{p x M}}{\mathrm{argmin}} \sum_{(i,j)\in O}(x_{ij} - \sum_{m=1}^M a_{im} b_{jm})^2$$
+where *O* is the set of all observed pairs of indices, $a_{im}$ are elements in the matrix of component score vectors, and $b_{jm}$ are elements in a matrix whose columns are eigenvectors. This objective function is difficult/impossible to solve exactly, but we can find a numeric approximation by starting with column means as estimates of the missing values, finding principal components of the column means estimated version of $x_{ij}$, using these components to recompute the missing values, and repeating until the objective function no longer decreases. 
 
 
-### 2.1.3 UBCF
+<br> 
+
+### 3.1.3 UBCF
+
+The second predictor algorithm evaluated was User Based Collaborative Filtering (UBCF). In this algorithm, we estimate missing rating values for a user by taking an average of the ratings for a movie provided by similar users. In our case, similarity between users was determined using **cosine similarity** given by:
+
+$$\frac{u^{t}}{||u||\cdot||v||}$$
+where *u* and *v* are ratings vectors of two users. The estimate of an unknown rating value is made using a weighted average of the known ratings value for the same movie provided by a neighborhood of similar users (who did provide a rating for the movie). 
+
+For the UBCF predictor in our analysis, we use a **center-normalized ratings matrix** with a **cosine similarity metric** and a **neighborhood size of 50** (all defaults for `predictorlab` UBCF). We use a **weighted rating calculation** so that the weight of the prediction contribution for each user in the neighborhood is proportional to the value of the similarity metric between the test user and the neighbor observation (this is also a UBCF default).
 
 
-## 2.2 Comparing Algorithms with Recommenderlab
+## 3.2 Comparing Algorithms with Recommenderlab
 
 First, we make sure the necessary packages are installed.
 ```{r, message=FALSE}
@@ -290,11 +303,6 @@ environment(rmse_box_plot) <- system_02
 With all our helper functions ready, we run the following code to build a ratings matrix, and run 10 iterations of a test-train split and RMSE comparison for SVD and UBCF predictors. Each iteration uses a separate test-train split, and the train fraction for each split is 0.9.
 <br>
 
-For the **column means imputation-based SVD algorithm, we use k = 50 components**.
-<br>
-
-For the UBCF predictor, we use a **center-normalized ratings matrix** with a **cosine simlarity metric** and a **neighborhood size of 50** (all defaults for `predictorlab` UBCF). We use a **weighted rating calculation** so that the weight of the prediction contribution for each user in the neighborhood is proportional to the value of the similarity metric between the test user and the neighbor observation (this is also a UBCF default).   
-
 ```{r}
 set.seed(8219)
 
@@ -324,9 +332,18 @@ with(system_02, {
 })
 ```
 
+Using the particular tuning parameters selected for the SVD and UBCF algorithms, SVD performs marginally better. It is important to keep in mind that no tuning was done for either model, so we cannot make any conclusions regarding the relative effectiveness of these approaches for our dataset.
+
+# 4. References
+- Shiny App code based on: https://github.com/pspachtholz/BookRecommender
+
+- Recommender lab methods based on: https://cran.r-project.org/web/packages/recommenderlab/vignettes/recommenderlab.pdf
+
+- Query algorithms based on examples at: https://liangfgithub.github.io/Rcode_W13_Movie_EDA.nb.html
 
 
-# Appendix
+# 5. Appendix: Movies retrieved by both genre-based queries for all 18 genres
+
 
 ```{r}
 system_01$top_rated_popular
@@ -336,6 +353,9 @@ system_01$top_rated_popular
 ```{r}
 system_01$most_other_genres_top_rated_popular
 ```
+
+
+
 
 
 

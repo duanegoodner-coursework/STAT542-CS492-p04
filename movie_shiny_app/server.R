@@ -1,7 +1,11 @@
+## REFERENCE: Majority of the code for this app is based on the Book Recommender app at:
+# https://github.com/pspachtholz/BookRecommender
+
 library(data.table)
 library(recommenderlab)
 library(Matrix)
 library(caret)
+library(dplyr)
 
 source('scripts/startup/import_server_data.R')
 source('functions/server_helpers.R')

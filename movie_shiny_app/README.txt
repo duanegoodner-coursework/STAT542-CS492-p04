@@ -1,0 +1,1 @@
+To run app, open either server.R or ui.R in R-studio, and then click the "Run App" button. 

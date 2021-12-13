@@ -1,3 +1,6 @@
+## REFERENCE: Majority of the code for this app is based on the Book Recommender app at:
+# https://github.com/pspachtholz/BookRecommender
+
 ## ui.R
 library(shiny)
 library(shinydashboard)
@@ -5,6 +8,7 @@ library(recommenderlab)
 library(data.table)
 library(ShinyRatingInput)
 library(shinyjs)
+library(shinyWidgets)
 
 source('functions/ui_helpers.R')
 source('scripts/startup/import_ui_data.R')
@@ -29,6 +33,8 @@ shinyUI(
               
               # genre-base recommender tab
               tabItem(tabName = "genre",
+                      h3("UI and server code taken from: https://github.com/pspachtholz/BookRecommender"),
+                      br(),
                 fluidRow(
                   box(width = 12,
                       # height = 250,
@@ -61,6 +67,8 @@ shinyUI(
               
               # collaborative filtering tab
               tabItem(tabName = "cf",
+                      h3("UI and server code taken from: https://github.com/pspachtholz/BookRecommender"),
+                      br(),
                 fluidRow(
                   box(width = 12,
                       title = "Step 1: Rate as many movies as possible",

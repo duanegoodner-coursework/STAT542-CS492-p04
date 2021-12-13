@@ -1,0 +1,11 @@
+name: movie_shiny_app
+title:
+username:
+account: duanegoodner
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 5317751
+bundleId: 5366144
+url: https://duanegoodner.shinyapps.io/movie_shiny_app/
+when: 1639393361.50355
+lastSyncTime: 1639393361.50356
