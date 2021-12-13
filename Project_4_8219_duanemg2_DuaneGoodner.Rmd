@@ -22,7 +22,7 @@ ensure_packages <- function(package_names) {
 ```
 
 
-# 1. Genre Based Recommendation Algorithms
+# 1. Genre Based Recommender Systems
 
 ## 1.1 Loading Packages and Data
 
@@ -115,7 +115,7 @@ build_genre_matrix()
 ```
 
 
-## 1.3 Genre-based Query Functions
+## 1.3 Query Functions
 
 Next, we build two different query function that will each recommend 5 (different) movies based on the knowledge of a user's favorite genre. 
 
@@ -175,7 +175,7 @@ environment(most_other_genres_high_rate_popular) <- system_01
 ```
 
 
-## 1.4 Genre based recommendery system results
+## 1.4 Genre based recommender results
 
 For each of the two query functions, we use `lapply` to obtain results for each of the 18 genres.
 ```{r}
@@ -207,6 +207,123 @@ datatable(system_01$most_other_genres_top_rated_popular$Comedy,
                            scrollX = TRUE, autoWidth = TRUE))
 
 ```
+
+# 2. Collaboarative Filtering Recommenders
+
+## 2.1 Algorithm Descriptions
+
+### 2.1.2 SVD (with Column Means Imputation)
+
+
+### 2.1.3 UBCF
+
+
+## 2.2 Comparing Algorithms with Recommenderlab
+
+First, we make sure the necessary packages are installed.
+```{r, message=FALSE}
+invisible(ensure_packages(c("recommenderlab", "Matrix")))
+```
+
+Next, we borrow a code snippet from the assignment instructions and use it to write a function for load ratings data into an environment.
+```{r}
+load_ratings <- function(data_env) {
+  with(data_env, {
+    data_url = "https://liangfgithub.github.io/MovieData/"
+    ratings = read.csv(paste0(data_url, 'ratings.dat?raw=true'), 
+                       sep = ':',
+                       colClasses = c('integer', 'NULL'), 
+                       header = FALSE)
+    colnames(ratings) = c('UserID', 'MovieID', 'Rating', 'Timestamp')
+    ratings$Timestamp = NULL
+  })
+}
+```
+
+We then create a new environment for the CF recommender systems and load the ratings data there.
+```{r}
+system_02 <- new.env()
+load_ratings(system_02)
+```
+
+Next, we write functions for building a `Recommenderlab` "realRatingMatrix" and testing a list of algorithms. Note that `system_02` is set as the calling environment for each of these functions.
+
+```{r}
+build_rrm <- function(ratings_data) {
+  user_ids <- as.factor(ratings_data$UserID)
+  movie_ids <- as.factor(ratings_data$MovieID)
+  r_sparse <- sparseMatrix(i = as.integer(user_ids),
+                           j = as.integer(movie_ids),
+                           x = ratings_data$Rating)
+  rownames(r_sparse) <- paste0('u', as.character(levels(user_ids)))
+  colnames(r_sparse) <- paste0('m', as.character(levels(movie_ids)))
+  
+  r_rrm <- as(r_sparse, "realRatingMatrix")
+  
+  return(r_rrm)
+}
+environment(build_rrm) <- system_02
+
+
+
+test_algos <- function(eval_scheme, algo_list) {
+
+  results <- evaluate(eval_scheme, algo_list, type = "ratings")
+  errors <- lapply(results, getConfusionMatrix)
+
+  return(data.frame(unlist(errors, recursive = FALSE)))
+}
+environment(test_algos) <- system_02
+```
+
+We also write a function that will be used to plot our results.
+```{r}
+rmse_box_plot <- function(eval_results) {
+  results_df <- bind_rows(eval_results)
+  boxplot(results_df[c("SVD.RMSE", "UBCF.RMSE")],
+          ylab = "RMSE",
+          main = "RMSE for SVD and UBCF Predictors (10 iterations each)")
+}
+environment(rmse_box_plot) <- system_02
+```
+
+With all our helper functions ready, we run the following code to build a ratings matrix, and run 10 iterations of a test-train split and RMSE comparison for SVD and UBCF predictors. Each iteration uses a separate test-train split, and the train fraction for each split is 0.9.
+<br>
+
+For the **column means imputation-based SVD algorithm, we use k = 50 components**.
+<br>
+
+For the UBCF predictor, we use a **center-normalized ratings matrix** with a **cosine simlarity metric** and a **neighborhood size of 50** (all defaults for `predictorlab` UBCF). We use a **weighted rating calculation** so that the weight of the prediction contribution for each user in the neighborhood is proportional to the value of the similarity metric between the test user and the neighbor observation (this is also a UBCF default).   
+
+```{r}
+set.seed(8219)
+
+with(system_02, {
+  r_rrm <- build_rrm(ratings)
+  algos <- list(
+    "SVD" = list(name="SVD", param=list(k = 50)),
+    "UBCF" = list(name="UBCF", param=list(nn = 50))
+  )
+  
+  eval_schemes <- vector(mode = "list", length = 10)
+  
+  for (scheme_num in 1:length(eval_schemes)) {
+    eval_schemes[[scheme_num]] <- evaluationScheme(r_rrm, method = "split",
+                                                   train = 0.9, given = 10)
+  }
+  
+  eval_results <- lapply(eval_schemes, test_algos, algo_list = algos)
+  
+})
+```
+
+Finally, we plot our results comparing the test RMSEs of the two algorithms.
+```{r}
+with(system_02, {
+  rmse_box_plot(eval_results)
+})
+```
+
 
 
 # Appendix
