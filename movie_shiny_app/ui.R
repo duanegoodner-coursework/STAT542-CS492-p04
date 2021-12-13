@@ -6,7 +6,7 @@ library(data.table)
 library(ShinyRatingInput)
 library(shinyjs)
 
-source('functions/helpers.R')
+source('functions/ui_helpers.R')
 
 shinyUI(
     dashboardPage(
