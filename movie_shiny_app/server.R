@@ -27,7 +27,7 @@ shinyServer(function(input, output, session) {
   
   # display recommendations on genre tab
   output$genre_results <- renderUI({
-    num_rows <- 2
+    num_rows <- 1
     num_movies <- 5
     recom_result <- genre_df()
     
