@@ -26,7 +26,7 @@ movies$image_url = sapply(movies$MovieID,
 
 r_rrm <- readRDS('recommenders/r_rrm.RDS')
 svd_recommender <- readRDS('recommenders/svd_recommender.RDS')
-random_recommender <- readRDS('recommenders/random_recommender.RDS')
 popular_recommender <- readRDS('recommenders/popular_recommender.RDS')
+
 model_data <- data.table(summary(as(r_rrm, "dgCMatrix")))
 new_user_id <- max(model_data$i + 1)

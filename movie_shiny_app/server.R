@@ -1,12 +1,33 @@
 library(data.table)
 library(recommenderlab)
 library(Matrix)
+library(caret)
 
-source('scripts/import_data.R')
+# source('scripts/import_data.R')
 source('functions/server_helpers.R')
 
 
+import_shiny_app_data()
+
 shinyServer(function(input, output, session) {
+  
+  genre_names <- colnames(genre_matrix)[-1]
+  
+  # show genre options
+  # output$genres <- renderUI({
+  #   num_rows <- 3
+  #   num_cols <- 6
+  # 
+  #   lapply(1:num_rows, function(row_num) {
+  #     list(fluidRow(lapply(1:num_cols, function(col_num) {
+  #       list(box(width = 2,
+  #                div(
+  #                  style = "text-align:center",
+  #                  strong(genre_names[(row_num - 1) * num_cols + col_num])
+  #                )))
+  #     })))
+  #   })
+  # })
   
   # show the books to be rated
   output$ratings <- renderUI({
@@ -16,9 +37,21 @@ shinyServer(function(input, output, session) {
     lapply(1:num_rows, function(i) {
       list(fluidRow(lapply(1:num_movies, function(j) {
         list(box(width = 2,
-                 div(style = "text-align:center", img(src = movies$image_url[(i - 1) * num_movies + j], height = 150)),
-                 div(style = "text-align:center", strong(movies$Title[(i - 1) * num_movies + j])),
-                 div(style = "text-align:center; font-size: 150%; color: #f0ad4e;", ratingInput(paste0("select_", movies$MovieID[(i - 1) * num_movies + j]), label = "", dataStop = 5)))) #00c0ef
+                 div(
+                   style = "text-align:center",
+                   img(src = movies$image_url[(i - 1) * num_movies + j],
+                       height = 150)
+                   ),
+                 div(
+                   style = "text-align:center",
+                   strong(movies$Title[(i - 1) * num_movies + j])
+                   ),
+                 div(style = "text-align:center; font-size: 150%; color: #f0ad4e;",
+                     ratingInput(paste0("select_", movies$MovieID[(i - 1) * num_movies + j]),
+                                 label = "", dataStop = 5)
+                   )
+                 )
+           ) #00c0ef
       })))
     })
   })

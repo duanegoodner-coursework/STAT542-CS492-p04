@@ -1,3 +1,27 @@
+
+source('scripts/load_movies.R')
+
+# current version places things in global environment. consider just
+# returning everything as an object (that will exist inside server function)?
+import_shiny_app_data <- function() {
+  movies <<- load_movies()
+  
+  small_image_url <<-  "https://liangfgithub.github.io/MovieImages/"
+  movies$image_url <<-  sapply(movies$MovieID, 
+                               function(x) paste0(small_image_url, x, '.jpg?raw=true'))
+  
+  genre_matrix <<- readRDS('recommenders/genre_matrix.RDS')
+  
+  r_rrm <<- readRDS('recommenders/r_rrm.RDS')
+  svd_recommender <<- readRDS('recommenders/svd_recommender.RDS')
+  popular_recommender <<- readRDS('recommenders/popular_recommender.RDS')
+  
+  
+  model_data <<- data.table(summary(as(r_rrm, "dgCMatrix")))
+  new_user_id <<- max(model_data$i + 1)
+}
+
+
 get_user_ratings = function(value_list) {
   dat = data.table(MovieID = sapply(strsplit(names(value_list), "_"), 
                                     function(x) ifelse(length(x) > 1, x[[2]], NA)),
@@ -35,3 +59,5 @@ get_user_top_n_ids <- function(user_ratings) {
   
   return(user_top_n_ids)
 }
+
+
